@@ -1,8 +1,13 @@
 <ion-header>
   <ion-navbar color="dark">
     <ion-title>{{title || "Image"}}</ion-title>
+    <ion-buttons end>
+      <button ion-button icon-only (click)="shareImage($event)">
+        <ion-icon ios="ios-share-outline" md="md-share"></ion-icon>
+      </button>
+    </ion-buttons>
   </ion-navbar>
 </ion-header>
 <ion-content class="response-image-page">
-  <image-cache [src]="image" [placeholder]="placeholder"></image-cache>
+  <image-cache [src]="image" [fallback]="placeholder"></image-cache>
 </ion-content>

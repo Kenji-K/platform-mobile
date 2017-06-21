@@ -1,12 +1,16 @@
 import { Injectable } from '@angular/core';
-import { Http, Headers, URLSearchParams, RequestOptions } from '@angular/http';
-import { Transfer, FileUploadOptions, FileUploadResult, FileTransferError, File, Entry, Metadata } from 'ionic-native';
+import { Http, Headers, URLSearchParams, RequestOptions, Response } from '@angular/http';
+import { Observable } from 'rxjs/Observable';
+import { File, Entry, Metadata } from '@ionic-native/file';
+import { Transfer, TransferObject, FileUploadOptions, FileUploadResult, FileTransferError } from '@ionic-native/transfer';
+
 import 'rxjs/add/operator/map';
 import 'rxjs/add/operator/retry';
 import 'rxjs/add/operator/delay';
-import 'rxjs/add/operator/timeout';
 import 'rxjs/add/operator/catch';
+import 'rxjs/add/operator/timeout';
 import 'rxjs/add/operator/mergeMap';
+import 'rxjs/add/observable/throw';
 
 import { LoggerService } from '../providers/logger-service';
 
@@ -14,9 +18,10 @@ import { LoggerService } from '../providers/logger-service';
 export class HttpService {
 
   constructor(
-    public http: Http,
-    public logger:LoggerService) {
-
+    protected http:Http,
+    protected file:File,
+    protected transfer:Transfer,
+    protected logger:LoggerService) {
   }
 
   httpHeaders(accessToken:string=null, otherHeaders:any=null): Headers {
@@ -51,7 +56,17 @@ export class HttpService {
         search: search });
       this.logger.info(this, "GET", url, params);
       this.http.get(url, options)
+        .timeout(12000)
         .map(res => res.json())
+        .catch((error:any) => {
+          if (error instanceof Response) {
+            return Observable.throw(error.json().error || 'Request Error');
+          }
+          else if (error.name === "TimeoutError") {
+            return Observable.throw("Request Timeout");
+          }
+          return Observable.throw(error || 'Request Error');
+        })
         .subscribe(
           (items) => {
             this.logger.info(this, "GET", url, items);
@@ -72,6 +87,7 @@ export class HttpService {
         headers: headers });
       this.logger.info(this, "POST", url, body);
       this.http.post(url, body, options)
+        .timeout(12000)
         .map(res => {
           if (res.status == 204) {
             return {}
@@ -79,6 +95,15 @@ export class HttpService {
           else {
             return res.json();
           }
+        })
+        .catch((error:any) => {
+          if (error instanceof Response) {
+            return Observable.throw(error.json().error || 'Request Error');
+          }
+          else if (error.name === "TimeoutError") {
+            return Observable.throw("Request Timeout");
+          }
+          return Observable.throw(error || 'Request Error');
         })
         .subscribe(
           (json) => {
@@ -101,6 +126,7 @@ export class HttpService {
         headers: headers });
       this.logger.info(this, "PUT", url, body);
       this.http.put(url, body, options)
+        .timeout(12000)
         .map(res => {
           if (res.status == 204) {
             return {}
@@ -108,6 +134,15 @@ export class HttpService {
           else {
             return res.json();
           }
+        })
+        .catch((error:any) => {
+          if (error instanceof Response) {
+            return Observable.throw(error.json().error || 'Request Error');
+          }
+          else if (error.name === "TimeoutError") {
+            return Observable.throw("Request Timeout");
+          }
+          return Observable.throw(error || 'Request Error');
         })
         .subscribe(
           (json) => {
@@ -130,6 +165,7 @@ export class HttpService {
         headers: headers });
       this.logger.info(this, "PATCH", url, body);
       this.http.patch(url, body, options)
+        .timeout(12000)
         .map(res => {
           if (res.status == 204) {
             return {}
@@ -137,6 +173,15 @@ export class HttpService {
           else {
             return res.json();
           }
+        })
+        .catch((error:any) => {
+          if (error instanceof Response) {
+            return Observable.throw(error.json().error || 'Request Error');
+          }
+          else if (error.name === "TimeoutError") {
+            return Observable.throw("Request Timeout");
+          }
+          return Observable.throw(error || 'Request Error');
         })
         .subscribe(
           (json) => {
@@ -158,6 +203,7 @@ export class HttpService {
         headers: headers });
       this.logger.info(this, "DELETE", url);
       this.http.delete(url, options)
+        .timeout(12000)
         .map(res => {
           this.logger.info(this, "DELETE", url, res);
           if (res.status == 201) {
@@ -169,6 +215,15 @@ export class HttpService {
           else {
             return res.json();
           }
+        })
+        .catch((error:any) => {
+          if (error instanceof Response) {
+            return Observable.throw(error.json().error || 'Request Error');
+          }
+          else if (error.name === "TimeoutError") {
+            return Observable.throw("Request Timeout");
+          }
+          return Observable.throw(error || 'Request Error');
         })
         .subscribe(
           (items) => {
@@ -182,14 +237,13 @@ export class HttpService {
     });
   }
 
-  fileUpload(url:string, token:string, file:string,
+  fileUpload(url:string, token:string, file:string, caption:string,
              httpMethod:string="POST",
              mimeType:string='application/binary',
              acceptType:string="application/json",
              contentType:string=undefined,
              contentLength:number=null) {
     return new Promise((resolve, reject) => {
-      let transfer = new Transfer();
       let fileName = file.substr(file.lastIndexOf('/') + 1).split('?').shift();
       let headers = {};
       if (acceptType) {
@@ -204,14 +258,20 @@ export class HttpService {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
+      var params = {};
+      if (caption && caption.length > 0) {
+        params['caption'] = caption;
+      }
       var options:FileUploadOptions = {
         httpMethod: httpMethod,
         mimeType: mimeType,
         fileName: fileName,
-        headers: headers
+        headers: headers,
+        params: params
       };
       this.logger.info(this, "UPLOAD", url, file, options);
-      transfer.upload(file, url, options, true).then(
+      let fileTransfer:TransferObject = this.transfer.create();
+      fileTransfer.upload(file, url, options, true).then(
         (data:FileUploadResult) => {
           this.logger.info(this, "UPLOAD", url, file, data);
           resolve(data);
@@ -254,7 +314,7 @@ export class HttpService {
   fileSize(filePath:any):Promise<number> {
     return new Promise((resolve, reject) => {
       this.logger.info(this, "fileSize", filePath);
-      File.resolveLocalFilesystemUrl(filePath).then(
+      this.file.resolveLocalFilesystemUrl(filePath).then(
         (entry:Entry) => {
           this.logger.info(this, "fileSize", filePath, "Entry", entry.fullPath);
           entry.getMetadata(

@@ -13,13 +13,54 @@ import { Image } from '../models/image';
 @Table("posts")
 export class Post extends Model {
 
-  constructor(values:any=null) {
-    super(values);
-    this.copyInto(values);
+  constructor(data:any=null) {
+    super(data);
+    this.copyInto(data);
+    if (data) {
+      if (data.id) {
+        this.id = data.id;
+      }
+      if (data.slug) {
+        this.slug = data.slug;
+      }
+      if (data.title) {
+        this.title = data.title;
+      }
+      if (data.content) {
+        this.description = data.content;
+      }
+      if (data.color) {
+        this.color = data.color;
+      }
+      if (data.status) {
+        this.status = data.status;
+      }
+      if (data.created) {
+        this.created = data.created;
+      }
+      if (data.updated) {
+        this.updated = data.updated;
+      }
+      if (data.post_date) {
+        this.posted = data.post_date;
+      }
+      if (data.user) {
+        this.user_id = data.user.id;
+      }
+      if (data.form) {
+        this.form_id = data.form.id;
+      }
+      if (data.allowed_privileges) {
+        this.can_read = data.allowed_privileges.indexOf("read") > -1;
+        this.can_create = data.allowed_privileges.indexOf("create") > -1;
+        this.can_update = data.allowed_privileges.indexOf("update") > -1;
+        this.can_delete = data.allowed_privileges.indexOf("delete") > -1;
+      }
+    }
   }
 
-  public newInstance<M extends Post>(values:any=null) : Post {
-    return new Post(values);
+  public newInstance<M extends Post>(data:any=null):Post {
+    return new Post(data);
   }
 
   @Column("id", INTEGER, PRIMARY_KEY)
@@ -161,9 +202,60 @@ export class Post extends Model {
       }
       return true;
     }
-    else {
-      return false;
+    return false;
+  }
+
+  isPublished():boolean {
+    return this.status === 'published';
+  }
+
+  isArchived():boolean {
+    return this.status === 'archived';
+  }
+
+  isDraft():boolean {
+    return this.status === 'draft';
+  }
+
+  packageValues() {
+    let values = {}
+    for (let value of this.values) {
+      if (value.value == null || value.value.length == 0) {
+        values[value.key] = [];
+      }
+      else if (value.isNumber() || value.isImage()) {
+        values[value.key] = [Number(value.value)];
+      }
+      else if (value.isVideo()) {
+        if (value.value.startsWith('http://') || value.value.startsWith('https://')) {
+          values[value.key] = [value.value];
+        }
+        else {
+          values[value.key] = [];
+        }
+      }
+      else if (value.isLocation()) {
+        if (value.value.indexOf(",") > -1) {
+          let location = value.value.split(",");
+          values[value.key] = [{
+            lat: Number(location[0]),
+            lon: Number(location[1])}];
+        }
+        else {
+          values[value.key] = [value.value];
+        }
+      }
+      else if (value.isCheckboxes()) {
+        values[value.key] = value.value.split(",")
+      }
+      else if (value.isTags()) {
+        values[value.key] = value.value.split(",")
+      }
+      else {
+        values[value.key] = [value.value];
+      }
     }
+    return values;
   }
 
 }

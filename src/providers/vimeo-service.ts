@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Http } from '@angular/http';
+import { Transfer} from '@ionic-native/transfer';
+import { File } from '@ionic-native/file';
 
 import { HttpService } from '../providers/http-service';
 import { LoggerService } from '../providers/logger-service';
@@ -15,12 +17,14 @@ export class VimeoService extends HttpService {
   private acceptType: string = "application/vnd.vimeo.*+json;version=3.2";
 
   constructor(
-    public http: Http,
-    public logger:LoggerService) {
-    super(http, logger);
+    protected http: Http,
+    protected file:File,
+    protected transfer:Transfer,
+    protected logger:LoggerService) {
+    super(http, file, transfer, logger);
   }
 
-  uploadVideo(file:string, title, description) {
+  uploadVideo(file:string, title, description):Promise<string> {
     this.logger.info(this, "uploadVideo", file);
     return new Promise((resolve, reject) => {
       this.createTicket().then(
@@ -35,12 +39,13 @@ export class VimeoService extends HttpService {
                 (completed:any) => {
                   this.logger.info(this, "uploadVideo", "completeVideo", completed);
                   let location = completed['Location'][0];
-                  let videoUrl = `https://vimeo.com${location}`;
-                  let videoId = location.substr(location.lastIndexOf('/') + 1);
-                  this.logger.info(this, "uploadVideo", "completeVideo", videoId, videoUrl);
-                  this.updateVideo(videoId, title, description).then(
+                  let identifier = location.substr(location.lastIndexOf('/') + 1);
+                  this.logger.info(this, "uploadVideo", "completeVideo", identifier);
+                  this.updateVideo(identifier, title, description).then(
                     (updated:any) => {
                       this.logger.info(this, "uploadVideo", "updateVideo", updated);
+                      let videoUrl = `https://player.vimeo.com/video/${identifier}/`;
+                      this.logger.info(this, "uploadVideo", "updateVideo", videoUrl);
                       resolve(videoUrl);
                     },
                     (error) => {
@@ -65,7 +70,7 @@ export class VimeoService extends HttpService {
     });
   }
 
-  createTicket(): Promise<any> {
+  createTicket():Promise<any> {
     return new Promise((resolve, reject) => {
       let url = "https://api.vimeo.com/me/videos";
       let params = { type: "streaming" };
@@ -80,14 +85,14 @@ export class VimeoService extends HttpService {
     });
   }
 
-  uploadFile(url:string, file:any): Promise<any> {
+  uploadFile(url:string, file:any):Promise<any> {
     return new Promise((resolve, reject) => {
       this.logger.info(this, "uploadFile", url, file);
       this.fileSize(file).then(
         (fileSize) => {
           this.logger.info(this, "uploadFile", "fileSize", fileSize);
           let mimeType = this.mimeType(file);
-          this.fileUpload(url, this.accessToken, file, "PUT", mimeType, this.acceptType, mimeType, fileSize).then(
+          this.fileUpload(url, this.accessToken, file, null, "PUT", mimeType, this.acceptType, mimeType, fileSize).then(
             (data:any) => {
               this.logger.info(this, "uploadFile", url, file, data);
               resolve(data);
@@ -104,10 +109,10 @@ export class VimeoService extends HttpService {
       });
   }
 
-  updateVideo(id:string, name:string=null, description:string=null): Promise<any> {
+  updateVideo(identifier:string, name:string=null, description:string=null):Promise<any> {
     return new Promise((resolve, reject) => {
-      this.logger.info(this, "updateVideo", id);
-      let url = `https://api.vimeo.com/videos/${id}`;
+      this.logger.info(this, "updateVideo", identifier);
+      let url = `https://api.vimeo.com/videos/${identifier}`;
       let params = {
         'name': name,
         'description': description,
@@ -119,17 +124,17 @@ export class VimeoService extends HttpService {
       };
       this.httpPatch(url, this.accessToken, params).then(
         (data:any) => {
-          this.logger.info(this, "updateVideo", id, data);
+          this.logger.info(this, "updateVideo", identifier, data);
           resolve(data);
         },
         (error:any) => {
-          this.logger.error(this, "updateVideo", id, error);
+          this.logger.error(this, "updateVideo", identifier, error);
           reject(error);
         })
     });
   }
 
-  completeVideo(url:string): Promise<any> {
+  completeVideo(url:string):Promise<any> {
     return new Promise((resolve, reject) => {
       this.logger.info(this, "completeVideo", url);
       this.httpDelete(url, this.accessToken).then(

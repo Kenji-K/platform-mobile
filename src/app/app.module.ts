@@ -1,7 +1,12 @@
 import { NgModule, ErrorHandler } from '@angular/core';
 import { IonicApp, IonicModule, IonicErrorHandler } from 'ionic-angular';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { HttpModule } from '@angular/http';
+import { BrowserModule } from '@angular/platform-browser';
 
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { MarkdownToHtmlModule } from 'markdown-to-html-pipe';
+
+import { AppVersion } from '@ionic-native/app-version';
 import { IsDebug } from '@ionic-native/is-debug';
 import { StatusBar } from '@ionic-native/status-bar';
 import { Transfer } from '@ionic-native/transfer';
@@ -12,11 +17,18 @@ import { SocialSharing } from '@ionic-native/social-sharing';
 import { Network } from '@ionic-native/network';
 import { InAppBrowser } from '@ionic-native/in-app-browser';
 import { Geolocation } from '@ionic-native/geolocation';
+import { Diagnostic } from '@ionic-native/diagnostic';
+import { SplashScreen } from '@ionic-native/splash-screen';
+import { SQLite } from '@ionic-native/sqlite';
+import { Keyboard } from '@ionic-native/keyboard';
+import { GoogleAnalytics } from '@ionic-native/google-analytics';
+import { NativeGeocoder } from '@ionic-native/native-geocoder'
+import { NativeStorage } from '@ionic-native/native-storage';
 
 import { MyApp } from './app.component';
 import { BasePage } from '../pages/base-page/base-page';
-import { HomePage } from '../pages/home/home';
 
+import { DeploymentNonePage } from '../pages/deployment-none/deployment-none';
 import { DeploymentSearchPage } from '../pages/deployment-search/deployment-search';
 import { DeploymentDetailsPage } from '../pages/deployment-details/deployment-details';
 import { DeploymentLoginPage } from '../pages/deployment-login/deployment-login';
@@ -41,6 +53,8 @@ import { InputSelectComponent } from '../components/input-select/input-select';
 import { InputTextComponent } from '../components/input-text/input-text';
 import { InputTextAreaComponent } from '../components/input-textarea/input-textarea';
 import { InputVideoComponent } from '../components/input-video/input-video';
+import { InputTagsComponent } from '../components/input-tags/input-tags';
+import { InputMarkdownComponent } from '../components/input-markdown/input-markdown';
 import { ImageCacheComponent } from '../components/image-cache/image-cache';
 import { PostCardComponent } from '../components/post-card/post-card';
 import { PostValueComponent } from '../components/post-value/post-value';
@@ -50,7 +64,8 @@ import { TimeAgoPipe } from '../pipes/time-ago';
 import { TitleizePipe } from '../pipes/titleize';
 import { CapitalizePipe } from '../pipes/capitalize';
 import { TruncatePipe } from '../pipes/truncate';
-import { HtmlParserPipe } from '../pipes/html-parser';
+import { HtmlStripPipe } from '../pipes/html-strip';
+import { HtmlParsePipe } from '../pipes/html-parse';
 
 import { LoggerService } from '../providers/logger-service';
 import { ApiService } from '../providers/api-service';
@@ -62,7 +77,7 @@ import { VimeoService } from '../providers/vimeo-service';
   declarations: [
     MyApp,
     BasePage,
-    HomePage,
+    DeploymentNonePage,
     DeploymentSearchPage,
     DeploymentDetailsPage,
     DeploymentSettingsPage,
@@ -85,6 +100,8 @@ import { VimeoService } from '../providers/vimeo-service';
     InputTextComponent,
     InputTextAreaComponent,
     InputVideoComponent,
+    InputTagsComponent,
+    InputMarkdownComponent,
     PostCardComponent,
     PostValueComponent,
     ImageCacheComponent,
@@ -93,17 +110,21 @@ import { VimeoService } from '../providers/vimeo-service';
     TitleizePipe,
     CapitalizePipe,
     TruncatePipe,
-    HtmlParserPipe
+    HtmlStripPipe,
+    HtmlParsePipe
   ],
   imports: [
-    IonicModule.forRoot(MyApp),
+    HttpModule,
+    BrowserModule,
     FormsModule,
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    MarkdownToHtmlModule,
+    IonicModule.forRoot(MyApp)
   ],
   bootstrap: [ IonicApp ],
   entryComponents: [
     MyApp,
-    HomePage,
+    DeploymentNonePage,
     DeploymentSearchPage,
     DeploymentLoginPage,
     DeploymentDetailsPage,
@@ -117,20 +138,29 @@ import { VimeoService } from '../providers/vimeo-service';
   ],
   providers: [
     { provide: File, useClass: File },
+    { provide: SQLite, useClass: SQLite },
     { provide: Camera, useClass: Camera },
     { provide: IsDebug, useClass: IsDebug },
     { provide: Network, useClass: Network },
+    { provide: Keyboard, useClass: Keyboard },
     { provide: Transfer, useClass: Transfer },
     { provide: StatusBar, useClass: StatusBar },
+    { provide: AppVersion, useClass: AppVersion },
+    { provide: Diagnostic, useClass: Diagnostic },
     { provide: Geolocation, useClass: Geolocation },
+    { provide: SplashScreen, useClass: SplashScreen },
     { provide: InAppBrowser, useClass: InAppBrowser },
     { provide: MediaCapture, useClass: MediaCapture },
     { provide: SocialSharing, useClass: SocialSharing },
+    { provide: NativeGeocoder, useClass: NativeGeocoder },
+    { provide: GoogleAnalytics, useClass: GoogleAnalytics },
+    { provide: NativeStorage, useClass: NativeStorage },
     { provide: ApiService, useClass: ApiService },
     { provide: VimeoService, useClass: VimeoService },
     { provide: CacheService, useClass: CacheService },
     { provide: LoggerService, useClass: LoggerService },
     { provide: DatabaseService, useClass: DatabaseService },
-    { provide: ErrorHandler, useClass: IonicErrorHandler } ]
+    { provide: ErrorHandler, useClass: IonicErrorHandler }
+  ]
 })
 export class AppModule {}

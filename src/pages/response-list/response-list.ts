@@ -1,7 +1,6 @@
 import { Component, NgZone, ViewChild } from '@angular/core';
-import { Platform, NavParams, Events, Content,
-  NavController, ViewController, LoadingController, ToastController, AlertController, ModalController, ActionSheetController } from 'ionic-angular';
-import { Geolocation, GeolocationOptions, Geoposition } from 'ionic-native';
+import { Platform, Events, Content, NavParams, NavController, ViewController, ModalController, ToastController, AlertController, LoadingController, ActionSheetController } from 'ionic-angular';
+import { Geolocation, GeolocationOptions, Geoposition } from '@ionic-native/geolocation';
 
 import 'leaflet';
 
@@ -10,16 +9,19 @@ import { MapMarker } from '../../maps/map-marker';
 
 import { TruncatePipe } from '../../pipes/truncate';
 
+import { Login } from '../../models/login';
 import { Deployment } from '../../models/deployment';
 import { Post } from '../../models/post';
 import { Form } from '../../models/form';
 import { Filter } from '../../models/filter';
 import { Collection } from '../../models/collection';
+import { Value } from '../../models/value';
+import { Image } from '../../models/image';
 
 import { ApiService } from '../../providers/api-service';
-import { CacheService } from '../../providers/cache-service';
 import { LoggerService } from '../../providers/logger-service';
 import { DatabaseService } from '../../providers/database-service';
+import { CacheService } from '../../providers/cache-service';
 
 import { BasePage } from '../../pages/base-page/base-page';
 import { ResponseAddPage } from '../response-add/response-add';
@@ -37,9 +39,9 @@ import { PLACEHOLDER_LATITUDE, PLACEHOLDER_LONGITUDE } from '../../constants/pla
 })
 export class ResponseListPage extends BasePage {
 
+  login:Login = null;
   deployment:Deployment = null;
   posts:Post[] = null;
-  filtered:Post[] = null;
   pending:Post[] = null;
   filter:Filter = null;
   view:string = 'list';
@@ -60,22 +62,23 @@ export class ResponseListPage extends BasePage {
   content: Content;
 
   constructor(
-    public api:ApiService,
-    public cache:CacheService,
-    public logger:LoggerService,
-    public database:DatabaseService,
-    public events:Events,
-    public navParams:NavParams,
-    public zone: NgZone,
-    public platform:Platform,
-    public navController:NavController,
-    public viewController:ViewController,
-    public modalController:ModalController,
-    public toastController:ToastController,
-    public alertController:AlertController,
-    public loadingController:LoadingController,
-    public actionController:ActionSheetController) {
-      super(zone, platform, logger, navParams, navController, viewController, modalController, toastController, alertController, loadingController, actionController);
+    protected zone:NgZone,
+    protected platform:Platform,
+    protected navParams:NavParams,
+    protected navController:NavController,
+    protected viewController:ViewController,
+    protected modalController:ModalController,
+    protected toastController:ToastController,
+    protected alertController:AlertController,
+    protected loadingController:LoadingController,
+    protected actionController:ActionSheetController,
+    protected logger:LoggerService,
+    protected api:ApiService,
+    protected database:DatabaseService,
+    protected cache:CacheService,
+    protected geolocation: Geolocation,
+    protected events:Events) {
+    super(zone, platform, navParams, navController, viewController, modalController, toastController, alertController, loadingController, actionController, logger);
   }
 
   ionViewDidLoad() {
@@ -83,13 +86,11 @@ export class ResponseListPage extends BasePage {
     this.events.subscribe(POST_DELETED, (post_id:number) => {
       this.logger.info(this, 'Events', POST_DELETED, post_id);
       this.posts = null;
-      this.filtered = null;
       this.loadPosts(true);
     });
     this.events.subscribe(POST_UPDATED, (post_id:number) => {
       this.logger.info(this, 'Events', POST_UPDATED, post_id);
       this.posts = null;
-      this.filtered = null;
       this.loadPosts(true);
     });
   }
@@ -99,6 +100,7 @@ export class ResponseListPage extends BasePage {
     if (this.deployment == null) {
       this.deployment = this.getParameter<Deployment>("deployment");
     }
+    this.login = this.getParameter<Login>("login");
     this.loadUpdates(null, true);
   }
 
@@ -109,6 +111,7 @@ export class ResponseListPage extends BasePage {
     return Promise.resolve()
       .then(() => { return this.loadFilters(cache); })
       .then(() => { return this.loadPosts(cache); })
+      .then(() => { return this.loadImages(cache); })
       .then(() => { return this.uploadPending(cache); })
       .then(() => {
         this.logger.info(this, "loadUpdates", "Updated");
@@ -150,7 +153,7 @@ export class ResponseListPage extends BasePage {
             resolve();
           },
           (error:any) => {
-            this.logger.info(this, "loadFilters", "Loaded", error);
+            this.logger.info(this, "loadFilters", "Failed", error);
             this.filter = null;
             resolve();
           });
@@ -159,65 +162,97 @@ export class ResponseListPage extends BasePage {
   }
 
   loadPosts(cache:boolean=true):Promise<any> {
-    this.logger.info(this, "loadPosts", "Cache", cache);
-    if (cache && this.posts != null && this.posts.length > 0) {
+    if (cache && this.posts != null && this.posts.length >= this.limit) {
       this.logger.info(this, "loadPosts", "Cached", this.posts.length);
       return Promise.resolve();
     }
     else {
+      this.logger.info(this, "loadPosts", "Cache", cache);
       return new Promise((resolve, reject) => {
         this.offset = 0;
-        this.api.getPostsWithValues(this.deployment, cache, this.offline, this.limit, this.offset).then(
+        this.api.getPostsWithValues(this.deployment, this.filter, cache, this.offline, this.limit, this.offset).then(
           (posts:Post[]) => {
-            this.logger.info(this, "loadPosts", "Posts", posts.length);
-            this.loadCache(posts);
             this.posts = posts;
-            this.filtered = this.getFiltered(posts, this.filter);
             this.pending = this.getPending(posts);
-            this.logger.info(this, "loadPosts", "Filtered", this.filtered.length, "Pending", this.pending.length);
+            this.logger.info(this, "loadPosts", "Posts", posts.length, "Pending", this.pending.length);
             resolve();
           },
           (error:any) => {
-            this.logger.error(this, "loadPosts", "API", error);
+            this.logger.error(this, "loadPosts", "Failed", error);
             reject(error);
           });
         });
     }
   }
 
+  loadImages(cache:boolean=true):Promise<any> {
+    this.logger.info(this, "loadImages");
+    let images = [];
+    for (let post of this.posts) {
+      for (let value of post.values) {
+        if (value.hasMissingImage()) {
+          images.push(this.loadImage(post, value));
+        }
+      }
+      this.cache.fetchMap(this.deployment.mapbox_api_key, post.latitude, post.longitude);
+    }
+    return Promise.all(images).then((saved) => {
+      this.logger.info(this, "loadImages", "Done");
+    });
+  }
+
+  loadImage(post:Post, value:Value):Promise<Image> {
+    return new Promise((resolve, reject) => {
+      this.logger.info(this, "loadImage", post.title, "Value", value.value);
+      let id = Number(value.value);
+      this.api.getImage(this.deployment, id, true).then((image:Image) => {
+        this.logger.info(this, "loadImage", post.title, "Value", value.value, "Downloaded", image);
+        image.post_id = post.id;
+        value.image = image.url;
+        post.image = image;
+        post.image_url = image.url;
+        let saves = [
+          this.database.saveImage(this.deployment, image),
+          this.database.saveValue(this.deployment, value),
+          this.database.savePost(this.deployment, post)
+        ];
+        Promise.all(saves).then((saved) => {
+          this.logger.info(this, "loadImage", post.title, "Value", value.value, "Saved", image);
+          this.cache.fetchImage(image.url);
+          resolve(image);
+        });
+      });
+    });
+  }
+
   loadMore(event, cache:boolean=true) {
     this.logger.info(this, "loadMore", cache);
+    this.loading = true;
     this.offset = this.offset + this.limit;
-    this.logger.info(this, "loadMore", "Limit", this.limit, "Offset", this.offset);
-    this.api.getPostsWithValues(this.deployment, cache, this.offline, this.limit, this.offset).then(
+    this.logger.info(this, "loadMore", "Filter", this.filter, "Limit", this.limit, "Offset", this.offset);
+    this.api.getPostsWithValues(this.deployment, this.filter, cache, this.offline, this.limit, this.offset).then(
       (posts:Post[]) => {
-        this.loadCache(posts);
         this.posts = this.posts.concat(posts);
-        this.logger.info(this, "loadMore", "Limit", this.limit, "Offset", this.offset, "Posts", this.posts.length);
-        this.filtered = this.getFiltered(this.posts, this.filter);
         this.pending = this.getPending(this.posts);
-        this.logger.info(this, "loadMore", "Limit", this.limit, "Offset", this.offset, "Filtered", this.filtered.length, "Pending", this.pending.length);
-        if (event) {
-          event.complete();
+        let images = [];
+        for (let post of posts) {
+          for (let value of post.values) {
+            if (value.hasMissingImage()) {
+              images.push(this.loadImage(post, value));
+            }
+          }
+          this.cache.fetchMap(this.deployment.mapbox_api_key, post.latitude, post.longitude);
         }
+        return Promise.all(images).then((saved) => {
+          this.logger.info(this, "loadMore", "Filter", this.filter, "Limit", this.limit, "Offset", this.offset, "Posts", this.posts.length, "Pending", this.pending.length);
+          this.loading = false;
+        });
       },
       (error:any) => {
         this.logger.error(this, "loadMore", "Failed", error);
-        if (event) {
-          event.complete();
-        }
+        this.loading = false;
         this.showToast(error);
       });
-  }
-
-  loadCache(posts:Post[]) {
-    if (posts != null && this.offline == false) {
-      this.logger.info(this, "loadCache", posts.length);
-      for (let post of posts) {
-        this.cache.fetchImage(post.image_url);
-        this.cache.fetchMap(post.latitude, post.longitude);
-      }
-    }
   }
 
   uploadPending(cache:boolean=true):Promise<any> {
@@ -261,24 +296,28 @@ export class ResponseListPage extends BasePage {
       this.api.createPostWithMedia(this.deployment, post).then(
         (posted:any) => {
           this.logger.info(this, "createPost", "Posted", posted);
-          let removes = [
-            this.database.removePost(this.deployment, post),
-            this.database.removeValues(this.deployment, post),
-          ];
+          let removes = [];
+          if (posted.id != null && posted.id > 0) {
+            removes.push(this.database.removePost(this.deployment, post));
+            removes.push(this.database.removeValues(this.deployment, post));
+          }
           Promise.all(removes).then(
             (removed) => {
-              this.logger.info(this, "createPost", "Pending Removed", removed);
-              post.id = posted.id;
-              post.saved = null;
+              let saves = [];
               post.pending = false;
-              let saves = [
-                this.database.savePost(this.deployment, post),
-              ];
-              for (let value of post.values) {
-                value.post_id = posted.id;
-                value.saved = null;
-                saves.push(this.database.saveValue(this.deployment, value));
+              if (posted.id != null && posted.id > 0) {
+                post.saved = null;
+                post.id = posted.id;
+                for (let value of post.values) {
+                  value.saved = null;
+                  value.post_id = posted.id;
+                  saves.push(this.database.saveValue(this.deployment, value));
+                }
               }
+              if (posted.status && posted.status.length > 0) {
+                post.status = posted.status;
+              }
+              saves.push(this.database.savePost(this.deployment, post));
               Promise.all(saves).then(
                 (saved) => {
                   this.logger.info(this, "createPost", "Saved", saved);
@@ -301,21 +340,6 @@ export class ResponseListPage extends BasePage {
     });
   }
 
-  getFiltered(posts:Post[], filter:Filter): Post[] {
-    let filtered: Post[] = [];
-    if (posts) {
-      for (let post of posts) {
-        if (filter == null) {
-          filtered.push(post);
-        }
-        else if (filter.showPost(post)) {
-          filtered.push(post);
-        }
-      }
-    }
-    return filtered;
-  }
-
   getPending(posts:Post[]): Post[] {
     let pending: Post[] = [];
     if (posts) {
@@ -332,6 +356,7 @@ export class ResponseListPage extends BasePage {
     this.logger.info(this, "showResponse", post);
     this.showPage(ResponseDetailsPage,
       { deployment: this.deployment,
+        login: this.login,
         post: post });
   }
 
@@ -340,24 +365,27 @@ export class ResponseListPage extends BasePage {
     let buttons = [];
     if (this.deployment.forms != null) {
       for (let form of this.deployment.forms){
-        buttons.push({
-          text: form.name,
-          handler: () => {
-            this.logger.info(this, "addResponse", "Form", form);
-            this.showResponseAdd(form);
-        }});
+        if (form.canSubmit(this.login)) {
+          buttons.push({
+            text: form.name,
+            handler: () => {
+              this.logger.info(this, "addResponse", "Form", form);
+              this.showResponseAdd(form);
+          }});
+        }
       }
     }
     buttons.push({
       text: 'Cancel',
       role: 'cancel'});
-    this.showActionSheet('Submit a survey response', buttons);
+    this.showActionSheet('Submit Survey Response', buttons);
   }
 
   showResponseAdd(form) {
     let modal = this.showModal(ResponseAddPage,
-      { form: form,
-        deployment: this.deployment })
+      { deployment: this.deployment,
+        login: this.login,
+        form: form })
     modal.onDidDismiss(data => {
       this.logger.info(this, "showResponseAdd", "Modal", data);
     });
@@ -368,11 +396,23 @@ export class ResponseListPage extends BasePage {
     let modal = this.showModal(ResponseSearchPage,
       { deployment: this.deployment,
         filter: this.filter });
-    modal.onDidDismiss(data => {
-      this.logger.info(this, "searchResponses", "Modal", data);
-      if (data) {
-        this.filter = data['filter'];
-        this.filtered = this.getFiltered(this.posts, this.filter);
+    modal.onDidDismiss((data:any) => {
+      if (data && data.filter) {
+        this.logger.info(this, "searchResponses", "Filter", data.filter);
+        this.filter = data.filter;
+        this.loading = true;
+        if (this.view == 'list') {
+          let loading = this.showLoading("Filtering...");
+          this.loadPosts(false).then((filtered) => {
+            loading.dismiss();
+            this.loading = false;
+          });
+        }
+        else {
+          this.loadMarkers(false).then((filtered) => {
+            this.loading = false;
+          });
+        }
       }
       this.resizeContent(400);
     });
@@ -494,6 +534,7 @@ export class ResponseListPage extends BasePage {
         (results:any) => {
           loading.dismiss();
           this.showToast("Added To Collection");
+          this.trackEvent("Posts", "collected", post.url);
         },
         (error:any) => {
           loading.dismiss();
@@ -527,6 +568,7 @@ export class ResponseListPage extends BasePage {
         this.database.savePost(this.deployment, post).then(saved => {
           loading.dismiss();
           this.showToast("Responsed archived");
+          this.trackEvent("Posts", "archived", post.url);
         });
       },
       (error:any) => {
@@ -544,7 +586,8 @@ export class ResponseListPage extends BasePage {
         post.status = "published";
         this.database.savePost(this.deployment, post).then(saved => {
           loading.dismiss();
-          this.showToast("Response archived");
+          this.showToast("Response published");
+          this.trackEvent("Posts", "published", post.url);
         });
       },
       (error:any) => {
@@ -570,13 +613,9 @@ export class ResponseListPage extends BasePage {
               this.posts.splice(postIndex, 1);
               this.logger.info(this, "removeResponse", "Post Removed")
             }
-            let filteredIndex = this.filtered.indexOf(post);
-            if (filteredIndex > -1) {
-              this.filtered.splice(filteredIndex, 1);
-              this.logger.info(this, "removeResponse", "Filtered Removed");
-            }
             loading.dismiss();
             this.showToast("Responsed removed");
+            this.trackEvent("Posts", "removed", post.url);
           },
           (error) => {
             loading.dismiss();
@@ -605,11 +644,12 @@ export class ResponseListPage extends BasePage {
                  if (postIndex > -1) {
                    this.posts.splice(postIndex, 1);
                  }
-                 let filteredIndex = this.filtered.indexOf(post, 0);
-                 if (filteredIndex > -1) {
-                   this.filtered.splice(filteredIndex, 1);
+                 let pendingIndex = this.pending.indexOf(post, 0);
+                 if (pendingIndex > -1) {
+                   this.pending.splice(pendingIndex, 1);
                  }
                  this.showToast("Response deleted");
+                 this.trackEvent("Posts", "deleted", post.url);
               });
              },
              (error:any) => {
@@ -634,12 +674,24 @@ export class ResponseListPage extends BasePage {
     this.database.removeFilters(this.deployment).then(
       (results:any) => {
         this.filter = null;
-        this.filtered = this.getFiltered(this.posts, this.filter);
+        this.loading = true;
+        this.resizeContent();
+        if (this.view == 'list') {
+          let loading = this.showLoading("Loading...");
+          this.loadPosts(true).then((cleared) => {
+            loading.dismiss();
+            this.loading = false;
+          });
+        }
+        else {
+          this.loadMarkers(true).then((cleared) => {
+            this.loading = false;
+          });
+        }
       },
       (error:any) => {
         this.showToast(error);
       });
-      this.resizeContent();
   }
 
   showList(event:any) {
@@ -696,7 +748,7 @@ export class ResponseListPage extends BasePage {
         let options:GeolocationOptions = {
           timeout: 6000,
           enableHighAccuracy: true };
-        Geolocation.getCurrentPosition(options).then(
+        this.geolocation.getCurrentPosition(options).then(
           (position:Geoposition) => {
             this.logger.info(this, "loadCenter", "getCurrentPosition", position);
             this.mapLatitude = position.coords.latitude;
@@ -717,56 +769,61 @@ export class ResponseListPage extends BasePage {
     return new Promise((resolve, reject) => {
       this.logger.info(this, "loadMap");
       this.map = L.map("mapMany").setView([this.mapLatitude, this.mapLongitude], this.mapZoom);
-      this.mapLayer = L.tileLayer(new TileLayer(this.mapStyle).getUrl(), { maxZoom: 20 });
+      this.mapLayer = L.tileLayer(new TileLayer(this.deployment.mapbox_api_key, this.mapStyle).getUrl(), { maxZoom: 20 });
       this.mapLayer.addTo(this.map);
       resolve(this.map);
     });
   }
 
-  loadMarkers(cache:boolean=true):Promise<any> {
+  loadMarkers(cache:boolean=true, offset:number=0, limit:number=10):Promise<any> {
     return new Promise((resolve, reject) => {
-      this.loading = true;
-      let limit = 10;
-      let promise = Promise.resolve();
-      for (let offset = 0; offset < this.deployment.posts_count; offset += limit) {
-        this.logger.info(this, "loadMarkers", "Limit", limit, "Offset", offset, "Queued");
-        promise = promise.then(
-          () => {
-            if (this.view == 'map') {
-              return this.api.getPosts(this.deployment, cache, this.offline, limit, offset).then((posts:Post[]) => {
-                this.logger.info(this, "loadMarkers", "Limit", limit, "Offset", offset, "Loaded");
-                for (let post of posts) {
-                  if (post.latitude && post.longitude) {
-                    let marker = this.loadMarker(post);
-                    marker.addTo(this.map);
-                  }
-                }
+      if (this.view == 'map') {
+        this.loading = true;
+        this.logger.info(this, "loadMarkers", "Limit", limit, "Offset", offset);
+        this.api.getPosts(this.deployment, this.filter, cache, this.offline, limit, offset).then(
+          (posts:Post[]) => {
+            this.logger.info(this, "loadMarkers", "Limit", limit, "Offset", offset, "Loaded");
+            for (let post of posts) {
+              if (post.latitude && post.longitude) {
+                let marker = this.loadMarker(post);
+                marker.addTo(this.map);
+              }
+            }
+            if (posts.length == limit) {
+              this.logger.info(this, "loadMarkers", "Limit", limit, "Offset", offset, "Resurse");
+              this.loadMarkers(cache, offset + limit, limit).then(
+                (resurse:any) => {
+                  resolve(resurse);
+                },
+                (error:any) => {
+                  reject(error);
               });
             }
             else {
-              this.logger.error(this, "loadMarkers", "Interrupted");
-              return Promise.reject(this.interrupted);
+              this.logger.info(this, "loadMarkers", "Limit", limit, "Offset", offset, "Finished");
+              this.loading = false;
+              resolve(offset);
             }
+          },
+          (error:any) => {
+            this.logger.error(this, "loadMarkers", error);
+            this.loading = false;
+            reject(error);
           });
       }
-      promise.then(
-        () => {
-          this.logger.info(this, "loadMarkers", "Finished");
-          this.loading = false;
-          resolve();
-        },
-        (error) => {
-          this.logger.error(this, "loadMarkers", "Rejected");
-          this.loading = false;
-          reject(error);
-        });
+      else {
+        this.logger.error(this, "loadMarkers", "Interrupted");
+        this.loading = false;
+        reject(this.interrupted);
+      }
     });
   }
 
   loadMarker(post:Post):L.Marker {
     this.logger.info(this, "loadMarker", post.title, post.latitude, post.longitude);
+    let iconUrl =  new MapMarker(this.deployment.mapbox_api_key, post.color).getUrl();
     let icon = L.icon({
-      iconUrl: new MapMarker(post.color).getUrl(),
+      iconUrl: iconUrl,
       iconSize: [30, 70],
       popupAnchor: [0, -25]
     });
@@ -823,7 +880,8 @@ export class ResponseListPage extends BasePage {
     this.logger.info(this, "changeStyle", mapStyle);
     this.mapStyle = mapStyle;
     this.map.removeLayer(this.mapLayer);
-    this.mapLayer = L.tileLayer(new TileLayer(this.mapStyle).getUrl(), { maxZoom: 20 });
+    let tileLayerUrl = new TileLayer(this.deployment.mapbox_api_key, this.mapStyle).getUrl()
+    this.mapLayer = L.tileLayer(tileLayerUrl, { maxZoom: 20 });
     this.mapLayer.addTo(this.map);
   }
 

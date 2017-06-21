@@ -5,20 +5,19 @@ import { StaticMap } from '../../maps/static-map';
 
 import { LoggerService } from '../../providers/logger-service';
 
-import { MAPBOX_ACCESS_TOKEN } from '../../constants/secrets';
 import { PLACEHOLDER_PHOTO, PLACEHOLDER_MAP } from '../../constants/placeholders';
 
 @Component({
   selector: 'post-value',
   templateUrl: 'post-value.html',
-  inputs: ['value']
+  inputs: ['value', 'mapToken']
 })
 export class PostValueComponent {
 
   value: any;
   map: string = null;
+  mapToken:string;
   video: SafeResourceUrl = null;
-  accessToken: string = MAPBOX_ACCESS_TOKEN;
   mapPaceholder: string = PLACEHOLDER_MAP;
   photoPaceholder: string = PLACEHOLDER_PHOTO;
 
@@ -44,10 +43,10 @@ export class PostValueComponent {
   }
 
   ngAfterContentChecked() {
-    if (this.value && this.value.input == 'location' && this.map == null) {
+    if (this.value && this.value.value && this.value.input == 'location' && this.map == null) {
       this.loadMapSrc(this.value.value);
     }
-    else if (this.value && this.value.input == 'video' && this.video == null) {
+    else if (this.value && this.value.value && this.value.input == 'video' && this.video == null) {
       this.loadVideoSrc(this.value.value);
     }
   }
@@ -58,7 +57,7 @@ export class PostValueComponent {
       if (location && location.length > 1) {
         let latitude = Number(location[0]);
         let longitude = Number(location[1]);
-        this.map = new StaticMap(latitude, longitude).getUrl();
+        this.map = new StaticMap(this.mapToken, latitude, longitude).getUrl();
       }
       else {
         this.map = null;
@@ -70,7 +69,13 @@ export class PostValueComponent {
   }
 
   loadVideoSrc(url:string) {
-    this.video = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+    this.logger.info(this, "loadVideoSrc", url);
+    if (url && url.length > 0) {
+      this.video = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+    }
+    else {
+      this.video = null;
+    }
   }
 
   locationClicked(coordinates:string) {
@@ -89,8 +94,10 @@ export class PostValueComponent {
 
   imageClicked(url:string) {
     this.logger.info(this, "imageClicked", url);
-    this.showImage.emit({
-      url: url });
+    if (url) {
+      this.showImage.emit({
+        url: url });
+    }
   }
 
 }

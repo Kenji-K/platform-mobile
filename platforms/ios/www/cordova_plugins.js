@@ -383,12 +383,30 @@ module.exports = [
         ]
     },
     {
-        "id": "cordova-plugin-networkactivityindicator.NetworkActivityIndicator",
-        "file": "plugins/cordova-plugin-networkactivityindicator/www/NetworkActivityIndicator.js",
-        "pluginId": "cordova-plugin-networkactivityindicator",
+        "id": "cordova-plugin-nativegeocoder.NativeGeocoder",
+        "file": "plugins/cordova-plugin-nativegeocoder/www/NativeGeocoder.js",
+        "pluginId": "cordova-plugin-nativegeocoder",
         "clobbers": [
-            "NetworkActivityIndicator"
+            "nativegeocoder"
         ]
+    },
+    {
+        "id": "cordova-plugin-nativestorage.mainHandle",
+        "file": "plugins/cordova-plugin-nativestorage/www/mainHandle.js",
+        "pluginId": "cordova-plugin-nativestorage",
+        "clobbers": [
+            "NativeStorage"
+        ]
+    },
+    {
+        "id": "cordova-plugin-nativestorage.LocalStorageHandle",
+        "file": "plugins/cordova-plugin-nativestorage/www/LocalStorageHandle.js",
+        "pluginId": "cordova-plugin-nativestorage"
+    },
+    {
+        "id": "cordova-plugin-nativestorage.NativeStorageError",
+        "file": "plugins/cordova-plugin-nativestorage/www/NativeStorageError.js",
+        "pluginId": "cordova-plugin-nativestorage"
     },
     {
         "id": "cordova-plugin-network-information.network",
@@ -408,18 +426,12 @@ module.exports = [
         ]
     },
     {
-        "id": "cordova-plugin-secure-storage.SecureStorage",
-        "file": "plugins/cordova-plugin-secure-storage/www/securestorage.js",
-        "pluginId": "cordova-plugin-secure-storage",
+        "id": "cordova-plugin-networkactivityindicator.NetworkActivityIndicator",
+        "file": "plugins/cordova-plugin-networkactivityindicator/www/NetworkActivityIndicator.js",
+        "pluginId": "cordova-plugin-networkactivityindicator",
         "clobbers": [
-            "SecureStorage"
+            "NetworkActivityIndicator"
         ]
-    },
-    {
-        "id": "cordova-plugin-secure-storage.sjcl_ss",
-        "file": "plugins/cordova-plugin-secure-storage/www/sjcl_ss.js",
-        "pluginId": "cordova-plugin-secure-storage",
-        "runs": true
     },
     {
         "id": "cordova-plugin-spinner-dialog.SpinnerDialog",
@@ -446,6 +458,12 @@ module.exports = [
         ]
     },
     {
+        "id": "es6-promise-plugin.Promise",
+        "file": "plugins/es6-promise-plugin/www/promise.js",
+        "pluginId": "es6-promise-plugin",
+        "runs": true
+    },
+    {
         "id": "cordova-plugin-x-socialsharing.SocialSharing",
         "file": "plugins/cordova-plugin-x-socialsharing/www/SocialSharing.js",
         "pluginId": "cordova-plugin-x-socialsharing",
@@ -459,6 +477,14 @@ module.exports = [
         "pluginId": "cordova-sqlite-storage",
         "clobbers": [
             "SQLitePlugin"
+        ]
+    },
+    {
+        "id": "cordova.plugins.diagnostic.Diagnostic",
+        "file": "plugins/cordova.plugins.diagnostic/www/ios/diagnostic.js",
+        "pluginId": "cordova.plugins.diagnostic",
+        "clobbers": [
+            "cordova.plugins.diagnostic"
         ]
     },
     {
@@ -483,32 +509,37 @@ module.exports = [
 module.exports.metadata = 
 // TOP OF METADATA
 {
+    "cordova-custom-config": "3.1.4",
     "cordova-plugin-app-version": "0.1.9",
     "cordova-plugin-compat": "1.1.0",
-    "cordova-plugin-camera": "2.4.0",
-    "cordova-plugin-console": "1.0.6",
-    "cordova-plugin-device": "1.1.5",
+    "cordova-plugin-camera": "2.4.1",
+    "cordova-plugin-console": "1.0.7",
+    "cordova-plugin-device": "1.1.6",
     "cordova-plugin-email": "1.2.6",
-    "cordova-plugin-file": "4.3.2",
+    "cordova-plugin-file": "4.3.3",
+    "cordova-plugin-file-transfer": "1.6.3",
     "cordova-plugin-filepath": "1.0.2",
-    "cordova-plugin-file-transfer": "1.6.2",
-    "cordova-plugin-geolocation": "2.4.2",
-    "cordova-plugin-google-analytics": "1.7.5",
-    "cordova-plugin-inappbrowser": "1.7.0",
+    "cordova-plugin-geolocation": "2.4.3",
+    "cordova-plugin-google-analytics": "1.7.11",
+    "cordova-plugin-inappbrowser": "1.7.1",
     "cordova-plugin-ios-longpress-fix": "1.1.0",
-    "cordova-plugin-ios-no-export-compliance": "0.0.1",
+    "cordova-plugin-ios-no-export-compliance": "0.0.2",
     "cordova-plugin-is-debug": "1.0.0",
-    "cordova-plugin-media-capture": "1.4.2",
+    "cordova-plugin-media-capture": "1.4.3",
+    "cordova-plugin-add-swift-support": "1.6.0",
+    "cordova-plugin-nativegeocoder": "1.0.2",
+    "cordova-plugin-nativestorage": "2.2.2",
+    "cordova-plugin-network-information": "1.3.3",
     "cordova-plugin-networkactivityindicator": "0.1.1",
-    "cordova-plugin-network-information": "1.3.2",
-    "cordova-plugin-secure-storage": "2.6.4",
     "cordova-plugin-spinner-dialog": "1.3.1",
-    "cordova-plugin-splashscreen": "4.0.2",
-    "cordova-plugin-statusbar": "2.2.2",
+    "cordova-plugin-splashscreen": "4.0.3",
+    "cordova-plugin-statusbar": "2.2.3",
     "cordova-plugin-whitelist": "1.3.2",
-    "cordova-plugin-x-socialsharing": "5.1.7",
-    "cordova-sqlite-storage": "1.5.3",
-    "ionic-plugin-deeplinks": "1.0.14",
+    "es6-promise-plugin": "4.1.0",
+    "cordova-plugin-x-socialsharing": "5.1.8",
+    "cordova-sqlite-storage": "2.0.4",
+    "cordova.plugins.diagnostic": "3.4.2",
+    "ionic-plugin-deeplinks": "1.0.15",
     "ionic-plugin-keyboard": "2.2.1"
 };
 // BOTTOM OF METADATA

@@ -8,7 +8,7 @@
     <ion-title *ngIf="form">{{form.name}}</ion-title>
     <ion-buttons end>
       <button #submit ion-button icon-only *ngIf="offline == true" (click)="onSubmit($event)">
-        <ion-icon ios="ios-download" md="md-download"></ion-icon>
+        <ion-icon ios="ios-send" md="md-send"></ion-icon>
       </button>
       <button #submit ion-button icon-only *ngIf="offline == false" (click)="onSubmit($event)">
         <ion-icon ios="ios-send" md="md-send"></ion-icon>
@@ -29,7 +29,7 @@
             <input-checkboxes [submitted]="submitted" [value]="values[attribute.key]" [attribute]="attribute" [formGroup]="formGroup" *ngIf="attribute.input == 'checkboxes'"></input-checkboxes>
             <input-date [submitted]="submitted" [value]="values[attribute.key]" [attribute]="attribute" [formGroup]="formGroup" *ngIf="attribute.input == 'date'"></input-date>
             <input-datetime [submitted]="submitted" [value]="values[attribute.key]" [attribute]="attribute" [formGroup]="formGroup" *ngIf="attribute.input == 'datetime'"></input-datetime>
-            <input-location [submitted]="submitted" [value]="values[attribute.key]" [attribute]="attribute" [formGroup]="formGroup" [offline]="offline" *ngIf="attribute.input == 'location'" (changeLocation)="changeLocation($event, attribute.key)"></input-location>
+            <input-location [submitted]="submitted" [value]="values[attribute.key]" [attribute]="attribute" [formGroup]="formGroup" [offline]="offline" [mapToken]="deployment.mapbox_api_key" *ngIf="attribute.input == 'location'" (changeLocation)="changeLocation($event, attribute.key)"></input-location>
             <input-number [submitted]="submitted" [value]="values[attribute.key]" [attribute]="attribute" [formGroup]="formGroup" *ngIf="attribute.input == 'number'"></input-number>
             <input-radio [submitted]="submitted" [value]="values[attribute.key]" [attribute]="attribute" [formGroup]="formGroup" *ngIf="attribute.input == 'radio'"></input-radio>
             <input-select [submitted]="submitted" [value]="values[attribute.key]" [attribute]="attribute" [formGroup]="formGroup" *ngIf="attribute.input == 'select'"></input-select>
@@ -38,6 +38,8 @@
             <input-image [submitted]="submitted" [value]="values[attribute.key]" [attribute]="attribute" [formGroup]="formGroup" *ngIf="attribute.input == 'upload'"></input-image>
             <input-text [submitted]="submitted" [value]="values[attribute.key]" [attribute]="attribute" [formGroup]="formGroup" *ngIf="attribute.input == 'varchar'"></input-text>
             <input-video [submitted]="submitted" [value]="values[attribute.key]" [attribute]="attribute" [formGroup]="formGroup" *ngIf="attribute.input == 'video'"></input-video>
+            <input-tags [submitted]="submitted" [value]="values[attribute.key]" [attribute]="attribute" [formGroup]="formGroup" *ngIf="attribute.input == 'tags'"></input-tags>
+            <input-markdown [submitted]="submitted" [value]="values[attribute.key]" [attribute]="attribute" [formGroup]="formGroup" *ngIf="attribute.input == 'markdown'"></input-markdown>
           </div>
         </div>
       </ion-list>

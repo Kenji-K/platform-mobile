@@ -1,8 +1,8 @@
 import { Component, NgZone, ViewChild } from '@angular/core';
-import { Platform, NavParams, Events, Content,
-  NavController, ViewController, LoadingController, ToastController, AlertController, ModalController, ActionSheetController  } from 'ionic-angular';
+import { Platform, Events, Content, NavParams, NavController, ViewController, ModalController, ToastController, AlertController, LoadingController, ActionSheetController } from 'ionic-angular';
 import { FormBuilder, FormGroup, FormControl, Validators } from '@angular/forms';
 
+import { Login } from '../../models/login';
 import { Deployment } from '../../models/deployment';
 import { Post } from '../../models/post';
 import { Form } from '../../models/form';
@@ -25,6 +25,7 @@ import { POST_UPDATED } from '../../constants/events';
 })
 export class ResponseAddPage extends BasePage {
 
+  login: Login = null;
   deployment: Deployment = null;
   post: Post = null;
   form: Form = null;
@@ -37,33 +38,33 @@ export class ResponseAddPage extends BasePage {
   content: Content;
 
   constructor(
-    public api:ApiService,
-    public logger:LoggerService,
-    public database:DatabaseService,
-    public events:Events,
-    public navParams: NavParams,
-    public zone: NgZone,
-    public platform:Platform,
-    public navController:NavController,
-    public viewController:ViewController,
-    public modalController:ModalController,
-    public toastController:ToastController,
-    public alertController:AlertController,
-    public loadingController:LoadingController,
-    public actionController:ActionSheetController,
-    public formBuilder: FormBuilder) {
-      super(zone, platform, logger, navParams, navController, viewController, modalController, toastController, alertController, loadingController, actionController);
+    protected zone:NgZone,
+    protected platform:Platform,
+    protected navParams:NavParams,
+    protected navController:NavController,
+    protected viewController:ViewController,
+    protected modalController:ModalController,
+    protected toastController:ToastController,
+    protected alertController:AlertController,
+    protected loadingController:LoadingController,
+    protected actionController:ActionSheetController,
+    protected logger:LoggerService,
+    protected api:ApiService,
+    protected database:DatabaseService,
+    protected events:Events,
+    protected formBuilder: FormBuilder) {
+    super(zone, platform, navParams, navController, viewController, modalController, toastController, alertController, loadingController, actionController, logger);
   }
 
   ionViewDidLoad() {
     super.ionViewDidLoad();
     this.deployment = this.getParameter<Deployment>("deployment");
+    this.login = this.getParameter<Login>("login");
     this.form = this.getParameter<Form>("form");
     this.post = this.getParameter<Post>("post");
     if (this.form) {
       this.color = this.form.color;
     }
-    this.logger.info(this, "Form Attributes", this.form.attributes);
     this.loadUpdates();
   }
 
@@ -89,7 +90,8 @@ export class ResponseAddPage extends BasePage {
   onCancel(event:any=null) {
     this.logger.info(this, "onCancel");
     this.post = null;
-    this.viewController.dismiss();
+    this.hideModal();
+    this.trackEvent("Posts", "cancelled", this.deployment.website);
   }
 
   onSubmit(event:any=null) {
@@ -104,13 +106,14 @@ export class ResponseAddPage extends BasePage {
             this.events.publish(POST_UPDATED, this.post.id);
             loading.dismiss();
             let buttons = [{
-              text: 'Ok',
+              text: 'OK',
               role: 'cancel',
               handler: () => {
-                this.viewController.dismiss();
+                this.hideModal();
               }
             }];
             this.showAlert('Response Saved', 'Your response has been saved!', buttons);
+            this.trackEvent("Posts", "saved", this.deployment.website);
           },
           (error) => {
             loading.dismiss();
@@ -124,13 +127,14 @@ export class ResponseAddPage extends BasePage {
             this.events.publish(POST_UPDATED, this.post.id);
             loading.dismiss();
             let buttons = [{
-              text: 'Ok',
+              text: 'OK',
               role: 'cancel',
               handler: () => {
-                this.viewController.dismiss();
+                this.hideModal();
               }
             }];
             this.showAlert('Response Updated', 'Your response has been updated!', buttons);
+            this.trackEvent("Posts", "updated", this.post.url);
           },
           (error) => {
             loading.dismiss();
@@ -144,13 +148,14 @@ export class ResponseAddPage extends BasePage {
             this.events.publish(POST_UPDATED, this.post.id);
             loading.dismiss();
             let buttons = [{
-              text: 'Ok',
+              text: 'OK',
               role: 'cancel',
               handler: () => {
-                this.viewController.dismiss();
+                this.hideModal();
               }
             }];
             this.showAlert('Response Posted', 'Your response has been posted!', buttons);
+            this.trackEvent("Posts", "added", this.post.url);
           },
           (error) => {
             loading.dismiss();
@@ -187,46 +192,50 @@ export class ResponseAddPage extends BasePage {
     });
   }
 
-  createPost(post:Post) {
+  createPost(post:Post):Promise<Post> {
     this.logger.info(this, "createPost", post);
     return new Promise((resolve, reject) => {
       this.logger.info(this, "createPost", "Posting...");
       this.api.createPostWithMedia(this.deployment, post).then(
         (posted:any) => {
           this.logger.info(this, "createPost", "Posted", posted);
-          post.id = posted.id;
+          let saves = [];
           post.pending = false;
-          let saves = [
-            this.database.savePost(this.deployment, post)
-          ];
+          if (posted.id && posted.id > 0) {
+            post.id = posted.id;
+          }
+          if (posted.status && posted.status.length > 0) {
+            post.status = posted.status;
+          }
+          saves.push(this.database.savePost(this.deployment, post));
           for (let value of post.values) {
-            value.post_id = posted.id;
+            value.post_id = post.id;
             saves.push(this.database.saveValue(this.deployment, value));
           }
           Promise.all(saves).then(
-            (saved) => {
+            (saved:any) => {
               this.logger.info(this, "createPost", "Saved", saved);
-              resolve();
+              resolve(post);
             },
-            (error) => {
+            (error:any) => {
               this.logger.error(this, "createPost", "Failed", error);
               reject(error);
             });
         },
-        (error) => {
+        (error:any) => {
           this.logger.error(this, "createPost", "Failed", error);
           reject(error);
         });
     });
   }
 
-  updatePost(post:Post) {
+  updatePost(post:Post):Promise<Post> {
     this.logger.info(this, "updatePost", post);
     return new Promise((resolve, reject) => {
       this.logger.info(this, "updatePost", "Updating...");
       this.api.updatePostWithMedia(this.deployment, post).then(
-        (success) => {
-          this.logger.info(this, "updatePost", "Updated", success);
+        (updated:any) => {
+          this.logger.info(this, "updatePost", "Updated", updated);
           let saves = [
             this.database.savePost(this.deployment, post)
           ];
@@ -234,16 +243,16 @@ export class ResponseAddPage extends BasePage {
             saves.push(this.database.saveValue(this.deployment, value));
           }
           Promise.all(saves).then(
-            (saved) => {
+            (saved:any) => {
               this.logger.info(this, "updatePost", "Saved", saved);
-              resolve();
+              resolve(post);
             },
-            (error) => {
+            (error:any) => {
               this.logger.error(this, "updatePost", "Failed", error);
               reject(error);
             });
         },
-        (error) => {
+        (error:any) => {
           this.logger.error(this, "updatePost", "Failed", error);
           reject(error);
         });
@@ -260,7 +269,9 @@ export class ResponseAddPage extends BasePage {
         this.post.id = Math.min(id, 0) - 1;
       });
       this.post.deployment_id = this.deployment.id;
-      this.post.user_id = this.deployment.user_id;
+      if (this.login) {
+        this.post.user_id = this.login.user_id;
+      }
       this.post.form_id = this.form.id;
       this.post.color = this.form.color;
       this.post.posted = new Date();
@@ -323,11 +334,15 @@ export class ResponseAddPage extends BasePage {
             let latitude = (coordinates.length > 1) ? coordinates[0] : '';
             let longitude = (coordinates.length > 1) ? coordinates[1] : '';
             let formGroup = new FormGroup({
+              street: new FormControl(null),
+              city: new FormControl(null),
+              province: new FormControl(null),
+              country: new FormControl(null),
               lat: new FormControl(latitude),
               lon: new FormControl(longitude)}, validator);
             this.formGroup.addControl(attribute.key, formGroup);
           }
-          else if (attribute.input == 'checkbox' || attribute.input == 'checkboxes') {
+          else if (attribute.input == 'checkbox' || attribute.input == 'checkboxes' || attribute.input == 'tags') {
             let formGroup = new FormGroup({}, validator);
             let options = attribute.getOptions();
             for (let option of options) {
@@ -337,6 +352,12 @@ export class ResponseAddPage extends BasePage {
           }
           else if (attribute.input == 'radio') {
             this.formGroup.addControl(attribute.key, new FormControl(text, validator));
+          }
+          else if (attribute.input == 'upload') {
+            let formGroup = new FormGroup({
+              image: new FormControl(null),
+              caption: new FormControl(null)}, validator);
+            this.formGroup.addControl(attribute.key, formGroup);
           }
           else {
             this.formGroup.addControl(attribute.key, new FormControl(text, validator));
@@ -368,22 +389,43 @@ export class ResponseAddPage extends BasePage {
     }
     for (let postValue of this.post.values) {
       let formValue = formValues[postValue.key];
-      if (postValue.input == 'checkbox' || postValue.input == 'checkboxes') {
-        let checks = [];
+      if (postValue.input == 'checkbox' || postValue.input == 'checkboxes' || postValue.input == 'tags') {
+        let checkmarks = [];
         for (let key in formValue) {
           if (formValue[key] == true || formValue[key] == 1) {
-            checks.push(key);
+            checkmarks.push(key);
           }
         }
-        postValue.value = checks.join(",");
+        postValue.value = checkmarks.join(",");
       }
       else if (postValue.input == 'location') {
         if (formValue && formValue.lat && formValue.lon) {
           postValue.value = `${formValue.lat},${formValue.lon}`;
         }
+        else if (formValue && formValue.street) {
+          let address = [];
+          if (formValue.street && formValue.street.length > 0) {
+            address.push(formValue.street);
+          }
+          if (formValue.city && formValue.city.length > 0) {
+            address.push(formValue.city);
+          }
+          if (formValue.province != null && formValue.province.length > 0) {
+            address.push(formValue.province);
+          }
+          if (formValue.country != null && formValue.country.length > 0) {
+            address.push(formValue.country);
+          }
+          this.logger.info(this, "loadFormValues", "Address", address);
+          postValue.value = address.join(", ");
+        }
         else {
           postValue.value = formValue;
         }
+      }
+      else if (postValue.input == 'upload') {
+        postValue.value = formValue.image;
+        postValue.caption = formValue.caption;
       }
       else {
         postValue.value = formValue;
@@ -395,7 +437,8 @@ export class ResponseAddPage extends BasePage {
   changeLocation(event, key) {
     this.logger.info(this, "changeLocation", event);
     let modal = this.showModal(ResponseMapPage,
-      { latitude: event['latitude'],
+      { deployment: this.deployment,
+        latitude: event['latitude'],
         longitude: event['longitude'],
         draggable: true,
         modal: true },

@@ -1,8 +1,9 @@
-import { Component, Input, OnInit, OnChanges, AfterContentChecked } from '@angular/core';
-import { Transfer, TransferObject } from '@ionic-native/transfer';
-import { File, Entry, FileEntry, FileError, Metadata } from '@ionic-native/file';
+import { Injectable, Component, Input, OnInit, OnChanges, AfterContentChecked } from '@angular/core';
 import { SafeUrl, DomSanitizer } from '@angular/platform-browser';
 import { Md5 } from 'ts-md5/dist/md5';
+
+import { Transfer, TransferObject } from '@ionic-native/transfer';
+import { File, Entry, FileEntry, FileError, Metadata } from '@ionic-native/file';
 
 import { LoggerService } from '../../providers/logger-service';
 
@@ -12,6 +13,7 @@ declare var cordova:any;
   selector: 'image-cache',
   template: `<div class="image-cache"><img [src]="placeholder" *ngIf="placeholder"><img class="fadein" [src]="safeUrl" *ngIf="safeUrl" /></div>`
 })
+@Injectable()
 export class ImageCacheComponent implements OnInit, OnChanges, AfterContentChecked {
 
   @Input('src')
@@ -65,6 +67,9 @@ export class ImageCacheComponent implements OnInit, OnChanges, AfterContentCheck
           this.useFallback();
         });
     }
+    else {
+      this.useFallback();
+    }
   }
 
   reloadCacheImage(url:string) {
@@ -77,7 +82,7 @@ export class ImageCacheComponent implements OnInit, OnChanges, AfterContentCheck
     return new Promise((resolve, reject) => {
       let file = this.getCacheFile(url);
       let directory = this.getCacheDirectory();
-      this.hasCacheImage(directory, file).then(
+      this.hasCacheImage(url, directory, file).then(
         (cache:string) => {
           this.logger.info(this, "fetchCacheImage", url, cache);
           resolve(cache);
@@ -96,7 +101,7 @@ export class ImageCacheComponent implements OnInit, OnChanges, AfterContentCheck
     });
   }
 
-  hasCacheImage(directory:string, cache:string):Promise<string> {
+  hasCacheImage(image:string, directory:string, cache:string):Promise<string> {
     return new Promise((resolve, reject) => {
       this.file.checkFile(directory, cache).then(
         (exists:boolean) => {

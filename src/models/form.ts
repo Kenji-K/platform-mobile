@@ -4,6 +4,7 @@ import { Table } from '../decorators/table';
 import { Column } from '../decorators/column';
 
 import { Model, TEXT, INTEGER, BOOLEAN, PRIMARY_KEY } from '../models/model';
+import { Login } from '../models/login';
 import { Stage } from '../models/stage';
 import { Attribute } from '../models/attribute';
 
@@ -11,13 +12,51 @@ import { Attribute } from '../models/attribute';
 @Table("forms")
 export class Form extends Model {
 
-  constructor(values:any=null) {
-    super(values);
-    this.copyInto(values);
+  constructor(data:any=null) {
+    super(data);
+    this.copyInto(data);
+    if (data) {
+      if (data.id) {
+        this.id = data.id;
+      }
+      if (data.type) {
+        this.type = data.type;
+      }
+      if (data.name) {
+        this.name = data.name;
+      }
+      if (data.color) {
+        this.color = data.color;
+      }
+      if (data.created) {
+        this.created = data.created;
+      }
+      if (data.updated) {
+        this.updated = data.updated;
+      }
+      if (data.disabled) {
+        this.disabled = data.disabled;
+      }
+      if (data.description) {
+        this.description = data.description;
+      }
+      if (data.everyone_can_create) {
+        this.can_submit = data.everyone_can_create;
+      }
+      if (data.can_create) {
+        this.user_roles = JSON.stringify(data.can_create);
+      }
+      if (data.allowed_privileges) {
+        this.can_read = data.allowed_privileges.indexOf("read") > -1;
+        this.can_create = data.allowed_privileges.indexOf("create") > -1;
+        this.can_update = data.allowed_privileges.indexOf("update") > -1;
+        this.can_delete = data.allowed_privileges.indexOf("delete") > -1;
+      }
+    }
   }
 
-  public newInstance<M extends Form>(values:any=null) : Form {
-    return new Form(values);
+  public newInstance<M extends Form>(data:any=null):Form {
+    return new Form(data);
   }
 
   @Column("id", INTEGER, PRIMARY_KEY)
@@ -41,6 +80,9 @@ export class Form extends Model {
   @Column("disabled", BOOLEAN)
   public disabled: boolean = null;
 
+  @Column("user_roles", TEXT)
+  public user_roles: string = null;
+
   @Column("created", TEXT)
   public created: Date = null;
 
@@ -49,6 +91,9 @@ export class Form extends Model {
 
   @Column("saved", TEXT)
   public saved: Date = null;
+
+  @Column("can_submit", BOOLEAN)
+  public can_submit: boolean = null;
 
   @Column("can_read", BOOLEAN)
   public can_read: boolean = null;
@@ -98,6 +143,29 @@ export class Form extends Model {
     else {
       this.attributes = [];
     }
+  }
+
+  canSubmit(login:Login=null) {
+    if (this.disabled == true) {
+      return false;
+    }
+    if (this.can_submit == true) {
+      return true;
+    }
+    if (login && login.user_role && login.user_role.length > 0) {
+      if (login.user_role == 'admin') {
+        return true;
+      }
+      if (this.user_roles && this.user_roles.length > 0) {
+        let user_roles = JSON.parse(this.user_roles);
+        for (let user_role of user_roles) {
+          if (user_role === login.user_role) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 
 }

@@ -19,11 +19,14 @@
   .value-textarea,
   .value-upload,
   .value-varchar,
-  .value-video {
+  .value-video,
+  .value-tags,
+  .value-markdown {
     color: #838383;
     font-weight: 400;
     font-size: 15px;
     padding-top: 5px;
+    padding-bottom: 15px;
   }
   .value-upload {
     img {
@@ -37,7 +40,8 @@
   }
   .value-text,
   .value-varchar,
-  .value-textarea {
+  .value-textarea,
+  .value-markdown {
     a {
       color: #777;
     }
@@ -45,7 +49,7 @@
   .value-video {
     .video {
     	position: relative;
-    	padding-bottom: 56.25%; /* 16:9 */
+    	padding-bottom: 56.25%;
     	padding-top: 25px;
     	height: 0;
       iframe {
@@ -55,6 +59,11 @@
       	width: 100%;
       	height: 100%;
       }
+    }
+  }
+  .value-tags {
+    ion-icon {
+      margin-right: 5px;
     }
   }
 }
